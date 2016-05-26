@@ -226,11 +226,10 @@ public class StatsDReporter extends ScheduledReporter {
     }
   }
 
-  private String transformName(String key) {
+  private String transformName(final String key) {
     if (replaceRegex == null) {
       return key;
-    }
-    else {
+    } else {
       return replaceRegex.matcher(key).replaceAll(replaceTo);
     }
   }
