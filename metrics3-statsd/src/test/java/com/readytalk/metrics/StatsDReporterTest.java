@@ -44,6 +44,7 @@ public class StatsDReporterTest {
       .convertRatesTo(TimeUnit.SECONDS)
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .filter(MetricFilter.ALL)
+      .transformNames("application_\\d+_\\d+\\.", "")
       .build(statsD);
 
   @SuppressWarnings("rawtypes") //Metrics library specifies the raw Gauge type unfortunately
@@ -57,6 +58,17 @@ public class StatsDReporterTest {
     final InOrder inOrder = inOrder(statsD);
     inOrder.verify(statsD).connect();
     inOrder.verify(statsD, never()).send("prefix.gauge", "value");
+    inOrder.verify(statsD).close();
+  }
+
+  @Test
+  public void transformsNames() throws Exception {
+    reporter.report(map("application_1464240555484_0002.driver.BlockManager.disk.diskSpaceUsed_MB", gauge((byte) 1)), this.<Counter>map(), this.<Histogram>map(), this.<Meter>map(),
+        this.<Timer>map());
+
+    final InOrder inOrder = inOrder(statsD);
+    inOrder.verify(statsD).connect();
+    inOrder.verify(statsD).send("prefix.driver.BlockManager.disk.diskSpaceUsed_MB", "1");
     inOrder.verify(statsD).close();
   }
 

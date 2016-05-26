@@ -37,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * A reporter which publishes metric values to a StatsD server.
@@ -49,16 +50,23 @@ public class StatsDReporter extends ScheduledReporter {
 
   private final StatsD statsD;
   private final String prefix;
+  private final Pattern replaceRegex;
+  private final String replaceTo;
 
   private StatsDReporter(final MetricRegistry registry,
                          final StatsD statsD,
                          final String prefix,
                          final TimeUnit rateUnit,
                          final TimeUnit durationUnit,
-                         final MetricFilter filter) {
+                         final MetricFilter filter,
+                         final Pattern replaceRegex,
+                         final String replaceTo
+                         ) {
     super(registry, "statsd-reporter", filter, rateUnit, durationUnit);
     this.statsD = statsD;
     this.prefix = prefix;
+    this.replaceRegex = replaceRegex;
+    this.replaceTo = replaceTo;
   }
 
   /**
@@ -83,6 +91,8 @@ public class StatsDReporter extends ScheduledReporter {
     private TimeUnit rateUnit;
     private TimeUnit durationUnit;
     private MetricFilter filter;
+    private Pattern replaceRegex;
+    private String replaceTo;
 
     private Builder(final MetricRegistry registry) {
       this.registry = registry;
@@ -90,6 +100,8 @@ public class StatsDReporter extends ScheduledReporter {
       this.rateUnit = TimeUnit.SECONDS;
       this.durationUnit = TimeUnit.MILLISECONDS;
       this.filter = MetricFilter.ALL;
+      this.replaceRegex = null;
+      this.replaceTo = null;
     }
 
     /**
@@ -137,6 +149,19 @@ public class StatsDReporter extends ScheduledReporter {
     }
 
     /**
+     * Transform the key name using the supplied regular expression.
+     *
+     * @param _replaceRegex the regular expression to look for replacement
+     * @param _replaceTo the target string to use
+     * @return {@code this}
+     */
+    public Builder transformNames(final String _replaceRegex, final String _replaceTo) {
+      this.replaceRegex = Pattern.compile(_replaceRegex);
+      this.replaceTo = _replaceTo;
+      return this;
+    }
+
+    /**
      * Builds a {@link StatsDReporter} with the given properties, sending metrics to StatsD at the given host and port.
      *
      * @param host the hostname of the StatsD server.
@@ -155,7 +180,7 @@ public class StatsDReporter extends ScheduledReporter {
      * @return a {@link StatsDReporter}
      */
     public StatsDReporter build(final StatsD statsD) {
-      return new StatsDReporter(registry, statsD, prefix, rateUnit, durationUnit, filter);
+      return new StatsDReporter(registry, statsD, prefix, rateUnit, durationUnit, filter, replaceRegex, replaceTo);
     }
   }
 
@@ -172,23 +197,23 @@ public class StatsDReporter extends ScheduledReporter {
       statsD.connect();
 
       for (Map.Entry<String, Gauge> entry : gauges.entrySet()) {
-        reportGauge(entry.getKey(), entry.getValue());
+        reportGauge(transformName(entry.getKey()), entry.getValue());
       }
 
       for (Map.Entry<String, Counter> entry : counters.entrySet()) {
-        reportCounter(entry.getKey(), entry.getValue());
+        reportCounter(transformName(entry.getKey()), entry.getValue());
       }
 
       for (Map.Entry<String, Histogram> entry : histograms.entrySet()) {
-        reportHistogram(entry.getKey(), entry.getValue());
+        reportHistogram(transformName(entry.getKey()), entry.getValue());
       }
 
       for (Map.Entry<String, Meter> entry : meters.entrySet()) {
-        reportMetered(entry.getKey(), entry.getValue());
+        reportMetered(transformName(entry.getKey()), entry.getValue());
       }
 
       for (Map.Entry<String, Timer> entry : timers.entrySet()) {
-        reportTimer(entry.getKey(), entry.getValue());
+        reportTimer(transformName(entry.getKey()), entry.getValue());
       }
     } catch (IOException e) {
       LOG.warn("Unable to report to StatsD", statsD, e);
@@ -198,6 +223,15 @@ public class StatsDReporter extends ScheduledReporter {
       } catch (IOException e) {
         LOG.debug("Error disconnecting from StatsD", statsD, e);
       }
+    }
+  }
+
+  private String transformName(String key) {
+    if (replaceRegex == null) {
+      return key;
+    }
+    else {
+      return replaceRegex.matcher(key).replaceAll(replaceTo);
     }
   }
 
