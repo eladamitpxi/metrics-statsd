@@ -7,7 +7,7 @@ buildscript {
     maven { url 'http://repo.springsource.org/plugins-release' }
   }
   dependencies {
-    classpath 'org.springframework.build.gradle:propdeps-plugin:0.0.3'
+    classpath 'org.springframework.build.gradle:propdeps-plugin:0.0.7'
   }
 }
 
@@ -41,8 +41,8 @@ subprojects {
     )
   
     optional (
-      'com.google.code.findbugs:jsr305:2.0.1',
-      'com.google.code.findbugs:annotations:2.0.1',
+      'com.google.code.findbugs:jsr305:3.0.1',
+      'com.google.code.findbugs:annotations:3.0.1',
     )
   
     testCompile (
@@ -56,7 +56,7 @@ subprojects {
   sourceCompatibility = 1.6
   targetCompatibility = 1.6
 
-  tasks.withType(Compile) { 
+  tasks.withType(JavaCompile) {
     options.compilerArgs << "-Xlint:all" 
   }
 
@@ -72,7 +72,7 @@ subprojects {
   }
 
   findbugs {
-    toolVersion = '2.0.1'
+    toolVersion = '3.0.1'
     sourceSets = [sourceSets.main]
     ignoreFailures = true
   }
